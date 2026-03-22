@@ -47,7 +47,7 @@ def decrypt_with_aes(encrypted_data, password, salt):
 
 
 salt = b'Tandon'
-password = 'mme324@nyu.edu'  # ← CHANGE THIS
+password = 'mme324@nyu.edu'
 input_string = 'AlwaysWatching'
 
 encrypted_value = encrypt_with_aes(input_string, password, salt)
@@ -130,13 +130,15 @@ def run_dns_server():
                         minimum
                     )
                     rdata_list.append(rdata)
-                    elif qtype == dns.rdatatype.TXT:
-                        rdata = dns.rdtypes.ANY.TXT.TXT(
+
+                elif qtype == dns.rdatatype.TXT:
+                    rdata = dns.rdtypes.ANY.TXT.TXT(
                         dns.rdataclass.IN,
                         dns.rdatatype.TXT,
                         [answer_data[0].encode()]
-                )
-                rdata_list.append(rdata)
+                    )
+                    rdata_list.append(rdata)
+
                 else:
                     if isinstance(answer_data, str):
                         rdata_list = [
@@ -153,7 +155,7 @@ def run_dns_server():
                     rrset.add(rdata)
                     response.answer.append(rrset)
 
-            response.flags |= 1 << 10  # AA flag
+            response.flags |= 1 << 10
 
             print("Responding to request:", qname)
             server_socket.sendto(response.to_wire(), addr)
