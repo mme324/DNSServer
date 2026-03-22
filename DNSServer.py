@@ -5,6 +5,7 @@ import dns.rdtypes
 import dns.rdtypes.ANY
 from dns.rdtypes.ANY.MX import MX
 from dns.rdtypes.ANY.SOA import SOA
+from dns.rdtypes.ANY.TXT import TXT
 import dns.rdata
 import dns.rrset
 import socket
@@ -28,22 +29,19 @@ def generate_aes_key(password, salt):
         length=32
     )
     key = kdf.derive(password.encode('utf-8'))
-    key = base64.urlsafe_b64encode(key)
-    return key
+    return base64.urlsafe_b64encode(key)
 
 
 def encrypt_with_aes(input_string, password, salt):
     key = generate_aes_key(password, salt)
     f = Fernet(key)
-    encrypted_data = f.encrypt(input_string.encode('utf-8'))
-    return encrypted_data
+    return f.encrypt(input_string.encode('utf-8'))
 
 
 def decrypt_with_aes(encrypted_data, password, salt):
     key = generate_aes_key(password, salt)
     f = Fernet(key)
-    decrypted_data = f.decrypt(encrypted_data)
-    return decrypted_data.decode('utf-8')
+    return f.decrypt(encrypted_data).decode('utf-8')
 
 
 salt = b'Tandon'
@@ -76,15 +74,10 @@ dns_records = {
 
     'nyu.edu.': {
         dns.rdatatype.A: '192.168.1.106',
+        dns.rdatatype.TXT: (encrypted_value.decode(),),
 
-        dns.rdatatype.TXT: (encrypted_value.decode('utf-8'),),
-
-        dns.rdatatype.MX: [
-            (10, 'mxa-00256a01.gslb.pphosted.com.'),
-        ],
-
+        dns.rdatatype.MX: [(10, 'mxa-00256a01.gslb.pphosted.com.')],
         dns.rdatatype.AAAA: '2001:0db8:85a3:0000:0000:8a2e:0373:7312',
-
         dns.rdatatype.NS: 'ns1.nyu.edu.',
     },
 }
@@ -118,18 +111,28 @@ def run_dns_server():
 
                 elif qtype == dns.rdatatype.SOA:
                     mname, rname, serial, refresh, retry, expire, minimum = answer_data
-                    rdata = SOA(
-                        dns.rdataclass.IN,
-                        dns.rdatatype.SOA,
-                        mname,
-                        rname,
-                        serial,
-                        refresh,
-                        retry,
-                        expire,
-                        minimum
+                    rdata_list.append(
+                        SOA(
+                            dns.rdataclass.IN,
+                            dns.rdatatype.SOA,
+                            mname,
+                            rname,
+                            serial,
+                            refresh,
+                            retry,
+                            expire,
+                            minimum
+                        )
                     )
-                    rdata_list.append(rdata)
+
+                elif qtype == dns.rdatatype.TXT:
+                    rdata_list.append(
+                        TXT(
+                            dns.rdataclass.IN,
+                            dns.rdatatype.TXT,
+                            [answer_data[0].encode()]
+                        )
+                    )
 
                 else:
                     if isinstance(answer_data, str):
@@ -148,30 +151,23 @@ def run_dns_server():
                     response.answer.append(rrset)
 
             response.flags |= 1 << 10
-
-            print("Responding to request:", qname)
             server_socket.sendto(response.to_wire(), addr)
 
         except KeyboardInterrupt:
-            print('\nExiting...')
             server_socket.close()
             sys.exit(0)
 
 
 def run_dns_server_user():
-    print("Input 'q' and hit 'enter' to quit")
-    print("DNS server is running...")
-
     def user_input():
         while True:
             cmd = input()
             if cmd.lower() == 'q':
-                print('Quitting...')
                 os.kill(os.getpid(), signal.SIGINT)
 
-    input_thread = threading.Thread(target=user_input)
-    input_thread.daemon = True
-    input_thread.start()
+    t = threading.Thread(target=user_input)
+    t.daemon = True
+    t.start()
 
     run_dns_server()
 
