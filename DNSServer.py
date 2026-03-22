@@ -54,38 +54,28 @@ encrypted_value = encrypt_with_aes(input_string, password, salt)
 
 
 dns_records = {
-
     'example.com.': {
         dns.rdatatype.A: '192.168.1.101',
     },
-
     'safebank.com.': {
         dns.rdatatype.A: '192.168.1.102',
     },
-
     'google.com.': {
         dns.rdatatype.A: '192.168.1.103',
     },
-
     'legitsite.com.': {
         dns.rdatatype.A: '192.168.1.104',
     },
-
     'yahoo.com.': {
         dns.rdatatype.A: '192.168.1.105',
     },
-
     'nyu.edu.': {
         dns.rdatatype.A: '192.168.1.106',
-
         dns.rdatatype.TXT: (encrypted_value.decode(),),
-
         dns.rdatatype.MX: [
             (10, 'mxa-00256a01.gslb.pphosted.com.'),
         ],
-
         dns.rdatatype.AAAA: '2001:0db8:85a3:0000:0000:8a2e:0373:7312',
-
         dns.rdatatype.NS: 'ns1.nyu.edu.',
     },
 }
@@ -161,20 +151,15 @@ def run_dns_server():
             server_socket.sendto(response.to_wire(), addr)
 
         except KeyboardInterrupt:
-            print('\nExiting...')
             server_socket.close()
             sys.exit(0)
 
 
 def run_dns_server_user():
-    print("Input 'q' and hit 'enter' to quit")
-    print("DNS server is running...")
-
     def user_input():
         while True:
             cmd = input()
             if cmd.lower() == 'q':
-                print('Quitting...')
                 os.kill(os.getpid(), signal.SIGINT)
 
     input_thread = threading.Thread(target=user_input)
