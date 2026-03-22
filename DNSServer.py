@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import base64
 import ast
 
+
 def generate_aes_key(password, salt):
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
@@ -31,47 +32,29 @@ def generate_aes_key(password, salt):
     key = base64.urlsafe_b64encode(key)
     return key
 
+
 def encrypt_with_aes(input_string, password, salt):
     key = generate_aes_key(password, salt)
     f = Fernet(key)
-    encrypted_data = f.encrypt(input_string.encode('utf-8'))
-    return encrypted_data    
+    return f.encrypt(input_string.encode('utf-8'))
+
 
 def decrypt_with_aes(encrypted_data, password, salt):
     key = generate_aes_key(password, salt)
     f = Fernet(key)
-    decrypted_data = f.decrypt(encrypted_data)
-    return decrypted_data.decode('utf-8')
+    return f.decrypt(encrypted_data).decode('utf-8')
+
 
 salt = b'Tandon'
 password = 'mme324@nyu.edu'
 input_string = 'AlwaysWatching'
 
 encrypted_value = encrypt_with_aes(input_string, password, salt)
-decrypted_value = decrypt_with_aes(encrypted_value, password, salt)
 
-def generate_sha256_hash(input_string):
-    sha256_hash = hashlib.sha256()
-    sha256_hash.update(input_string.encode('utf-8'))
-    return sha256_hash.hexdigest()
 
 dns_records = {
     'example.com.': {
         dns.rdatatype.A: '192.168.1.101',
-        dns.rdatatype.AAAA: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
-        dns.rdatatype.MX: [(10, 'mail.example.com.')],
-        dns.rdatatype.CNAME: 'www.example.com.',
-        dns.rdatatype.NS: 'ns.example.com.',
-        dns.rdatatype.TXT: ('This is a TXT record',),
-        dns.rdatatype.SOA: (
-            'ns1.example.com.',
-            'admin.example.com.',
-            2023081401,
-            3600,
-            1800,
-            604800,
-            86400,
-        ),
     },
 
     'safebank.com.': {
@@ -92,12 +75,13 @@ dns_records = {
 
     'nyu.edu.': {
         dns.rdatatype.A: '192.168.1.106',
-        dns.rdatatype.TXT: (encrypted_value.decode(),),
+        dns.rdatatype.TXT: (encrypted_value.decode('utf-8'),),
         dns.rdatatype.MX: [(10, 'mxa-00256a01.gslb.pphosted.com.')],
         dns.rdatatype.AAAA: '2001:0db8:85a3:0000:0000:8a2e:0373:7312',
         dns.rdatatype.NS: 'ns1.nyu.edu.',
     },
 }
+
 
 def run_dns_server():
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -106,6 +90,7 @@ def run_dns_server():
     while True:
         try:
             data, addr = server_socket.recvfrom(1024)
+
             request = dns.message.from_wire(data)
             response = dns.message.make_response(request)
 
@@ -138,12 +123,14 @@ def run_dns_server():
                     rdata_list.append(rdata)
 
                 elif qtype == dns.rdatatype.TXT:
+                
                     for txt in answer_data:
                         rdata = dns.rdata.from_text(
                             dns.rdataclass.IN,
                             dns.rdatatype.TXT,
-                            '"' + txt + '"'
+                            txt
                         )
+                        rdata.strings = [txt.encode('utf-8')]  
                         rdata_list.append(rdata)
 
                 else:
@@ -153,8 +140,9 @@ def run_dns_server():
                         rdata_list = [dns.rdata.from_text(dns.rdataclass.IN, qtype, data) for data in answer_data]
 
                 for rdata in rdata_list:
-                    response.answer.append(dns.rrset.RRset(question.name, dns.rdataclass.IN, qtype))
-                    response.answer[-1].add(rdata)
+                    rrset = dns.rrset.RRset(question.name, dns.rdataclass.IN, qtype)
+                    rrset.add(rdata)
+                    response.answer.append(rrset)
 
             response.flags |= 1 << 10
 
@@ -181,6 +169,7 @@ def run_dns_server_user():
     input_thread = threading.Thread(target=user_input)
     input_thread.daemon = True
     input_thread.start()
+
     run_dns_server()
 
 
