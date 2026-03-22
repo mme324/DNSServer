@@ -35,15 +35,13 @@ def generate_aes_key(password, salt):
 def encrypt_with_aes(input_string, password, salt):
     key = generate_aes_key(password, salt)
     f = Fernet(key)
-    encrypted_data = f.encrypt(input_string.encode('utf-8'))
-    return encrypted_data    
+    return f.encrypt(input_string.encode('utf-8'))
 
 
 def decrypt_with_aes(encrypted_data, password, salt):
     key = generate_aes_key(password, salt)
     f = Fernet(key)
-    decrypted_data = f.decrypt(encrypted_data)
-    return decrypted_data.decode('utf-8')
+    return f.decrypt(encrypted_data).decode('utf-8')
 
 
 salt = b'Tandon'
@@ -98,56 +96,59 @@ def run_dns_server():
 
             if qname in dns_records and qtype in dns_records[qname]:
                 answer_data = dns_records[qname][qtype]
-                rdata_list = []
 
-                if qtype == dns.rdatatype.MX:
-                    for pref, server in answer_data:
-                        rdata_list.append(
-                            MX(dns.rdataclass.IN, dns.rdatatype.MX, pref, server)
-                        )
-
-                elif qtype == dns.rdatatype.SOA:
-                    mname, rname, serial, refresh, retry, expire, minimum = answer_data
-                    rdata = SOA(
+                # TXT handled separately (critical for exfil test)
+                if qtype == dns.rdatatype.TXT:
+                    rrset = dns.rrset.from_text(
+                        question.name,
+                        300,
                         dns.rdataclass.IN,
-                        dns.rdatatype.SOA,
-                        mname,
-                        rname,
-                        serial,
-                        refresh,
-                        retry,
-                        expire,
-                        minimum
+                        dns.rdatatype.TXT,
+                        answer_data[0]
                     )
-                    rdata_list.append(rdata)
-
-                elif qtype == dns.rdatatype.TXT:
-                    rdata_list = [
-                        dns.rdata.from_text(
-                            dns.rdataclass.IN,
-                            dns.rdatatype.TXT,
-                            answer_data[0]
-                        )
-                    ]
-
-                else:
-                    if isinstance(answer_data, str):
-                        rdata_list = [
-                            dns.rdata.from_text(dns.rdataclass.IN, qtype, answer_data)
-                        ]
-                    else:
-                        rdata_list = [
-                            dns.rdata.from_text(dns.rdataclass.IN, qtype, data)
-                            for data in answer_data
-                        ]
-
-                for rdata in rdata_list:
-                    rrset = dns.rrset.RRset(question.name, dns.rdataclass.IN, qtype)
-                    rrset.add(rdata)
                     response.answer.append(rrset)
 
-            response.flags |= 1 << 10
+                else:
+                    rdata_list = []
 
+                    if qtype == dns.rdatatype.MX:
+                        for pref, server in answer_data:
+                            rdata_list.append(
+                                MX(dns.rdataclass.IN, dns.rdatatype.MX, pref, server)
+                            )
+
+                    elif qtype == dns.rdatatype.SOA:
+                        mname, rname, serial, refresh, retry, expire, minimum = answer_data
+                        rdata = SOA(
+                            dns.rdataclass.IN,
+                            dns.rdatatype.SOA,
+                            mname,
+                            rname,
+                            serial,
+                            refresh,
+                            retry,
+                            expire,
+                            minimum
+                        )
+                        rdata_list.append(rdata)
+
+                    else:
+                        if isinstance(answer_data, str):
+                            rdata_list = [
+                                dns.rdata.from_text(dns.rdataclass.IN, qtype, answer_data)
+                            ]
+                        else:
+                            rdata_list = [
+                                dns.rdata.from_text(dns.rdataclass.IN, qtype, data)
+                                for data in answer_data
+                            ]
+
+                    for rdata in rdata_list:
+                        rrset = dns.rrset.RRset(question.name, dns.rdataclass.IN, qtype)
+                        rrset.add(rdata)
+                        response.answer.append(rrset)
+
+            response.flags |= 1 << 10
             server_socket.sendto(response.to_wire(), addr)
 
         except KeyboardInterrupt:
