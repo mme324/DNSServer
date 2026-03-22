@@ -122,12 +122,13 @@ def run_dns_server():
                     rdata_list.append(rdata)
 
                 elif qtype == dns.rdatatype.TXT:
-                    rdata = dns.rdtypes.ANY.TXT.TXT(
-                        dns.rdataclass.IN,
-                        dns.rdatatype.TXT,
-                        [answer_data[0].encode()]
-                    )
-                    rdata_list.append(rdata)
+                    rdata_list = [
+                        dns.rdata.from_text(
+                            dns.rdataclass.IN,
+                            dns.rdatatype.TXT,
+                            answer_data[0]
+                        )
+                    ]
 
                 else:
                     if isinstance(answer_data, str):
@@ -147,7 +148,6 @@ def run_dns_server():
 
             response.flags |= 1 << 10
 
-            print("Responding to request:", qname)
             server_socket.sendto(response.to_wire(), addr)
 
         except KeyboardInterrupt:
