@@ -36,13 +36,15 @@ def generate_aes_key(password, salt):
 def encrypt_with_aes(input_string, password, salt):
     key = generate_aes_key(password, salt)
     f = Fernet(key)
-    return f.encrypt(input_string.encode('utf-8'))
+    encrypted_data = f.encrypt(input_string.encode('utf-8'))
+    return encrypted_data    
 
 
 def decrypt_with_aes(encrypted_data, password, salt):
     key = generate_aes_key(password, salt)
     f = Fernet(key)
-    return f.decrypt(encrypted_data).decode('utf-8')
+    decrypted_data = f.decrypt(encrypted_data)
+    return decrypted_data.decode('utf-8')
 
 
 salt = b'Tandon'
@@ -55,6 +57,20 @@ encrypted_value = encrypt_with_aes(input_string, password, salt)
 dns_records = {
     'example.com.': {
         dns.rdatatype.A: '192.168.1.101',
+        dns.rdatatype.AAAA: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
+        dns.rdatatype.MX: [(10, 'mail.example.com.')],
+        dns.rdatatype.CNAME: 'www.example.com.',
+        dns.rdatatype.NS: 'ns.example.com.',
+        dns.rdatatype.TXT: ('This is a TXT record',),
+        dns.rdatatype.SOA: (
+            'ns1.example.com.',
+            'admin.example.com.',
+            2023081401,
+            3600,
+            1800,
+            604800,
+            86400,
+        ),
     },
 
     'safebank.com.': {
@@ -122,17 +138,6 @@ def run_dns_server():
                     )
                     rdata_list.append(rdata)
 
-                elif qtype == dns.rdatatype.TXT:
-                
-                    for txt in answer_data:
-                        rdata = dns.rdata.from_text(
-                            dns.rdataclass.IN,
-                            dns.rdatatype.TXT,
-                            txt
-                        )
-                        rdata.strings = [txt.encode('utf-8')]  
-                        rdata_list.append(rdata)
-
                 else:
                     if isinstance(answer_data, str):
                         rdata_list = [dns.rdata.from_text(dns.rdataclass.IN, qtype, answer_data)]
@@ -140,9 +145,8 @@ def run_dns_server():
                         rdata_list = [dns.rdata.from_text(dns.rdataclass.IN, qtype, data) for data in answer_data]
 
                 for rdata in rdata_list:
-                    rrset = dns.rrset.RRset(question.name, dns.rdataclass.IN, qtype)
-                    rrset.add(rdata)
-                    response.answer.append(rrset)
+                    response.answer.append(dns.rrset.RRset(question.name, dns.rdataclass.IN, qtype))
+                    response.answer[-1].add(rdata)
 
             response.flags |= 1 << 10
 
