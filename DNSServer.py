@@ -130,7 +130,14 @@ def run_dns_server():
                         minimum
                     )
                     rdata_list.append(rdata)
-
+                elif qtype == dns.rdatatype.TXT:
+                    rdata_list = [
+                        dns.rdata.from_text(
+                        dns.rdataclass.IN,
+                        dns.rdatatype.TXT,
+                        '"' + answer_data[0] + '"'
+                )
+    ]
                 else:
                     if isinstance(answer_data, str):
                         rdata_list = [
