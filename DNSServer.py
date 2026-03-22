@@ -28,8 +28,7 @@ def generate_aes_key(password, salt):
         length=32
     )
     key = kdf.derive(password.encode('utf-8'))
-    key = base64.urlsafe_b64encode(key)
-    return key
+    return base64.urlsafe_b64encode(key)
 
 
 def encrypt_with_aes(input_string, password, salt):
@@ -44,6 +43,7 @@ def decrypt_with_aes(encrypted_data, password, salt):
     return f.decrypt(encrypted_data).decode('utf-8')
 
 
+# === REQUIRED PARAMETERS ===
 salt = b'Tandon'
 password = 'mme324@nyu.edu'
 input_string = 'AlwaysWatching'
@@ -51,6 +51,7 @@ input_string = 'AlwaysWatching'
 encrypted_value = encrypt_with_aes(input_string, password, salt)
 
 
+# === DNS RECORDS ===
 dns_records = {
     'example.com.': {
         dns.rdatatype.A: '192.168.1.101',
@@ -69,10 +70,14 @@ dns_records = {
     },
     'nyu.edu.': {
         dns.rdatatype.A: '192.168.1.106',
+
+        # CRITICAL: store as plain string (NOT tuple)
         dns.rdatatype.TXT: encrypted_value.decode(),
+
         dns.rdatatype.MX: [
-            (10, 'mxa-00256a01.gslb.pphosted.com.'),
+            (10, 'mxa-00256a01.gslb.pphosted.com.')
         ],
+
         dns.rdatatype.AAAA: '2001:0db8:85a3:0000:0000:8a2e:0373:7312',
         dns.rdatatype.NS: 'ns1.nyu.edu.',
     },
@@ -97,14 +102,13 @@ def run_dns_server():
             if qname in dns_records and qtype in dns_records[qname]:
                 answer_data = dns_records[qname][qtype]
 
-                # TXT handled separately (critical for exfil test)
                 if qtype == dns.rdatatype.TXT:
                     rrset = dns.rrset.from_text(
                         question.name,
                         300,
                         dns.rdataclass.IN,
                         dns.rdatatype.TXT,
-                        answer_data[0]
+                        f'"{answer_data}"'   
                     )
                     response.answer.append(rrset)
 
@@ -148,7 +152,9 @@ def run_dns_server():
                         rrset.add(rdata)
                         response.answer.append(rrset)
 
+            # Set Authoritative Answer flag
             response.flags |= 1 << 10
+
             server_socket.sendto(response.to_wire(), addr)
 
         except KeyboardInterrupt:
@@ -157,15 +163,18 @@ def run_dns_server():
 
 
 def run_dns_server_user():
+    print("Input 'q' and hit enter to quit")
+    print("DNS server is running...")
+
     def user_input():
         while True:
             cmd = input()
             if cmd.lower() == 'q':
                 os.kill(os.getpid(), signal.SIGINT)
 
-    input_thread = threading.Thread(target=user_input)
-    input_thread.daemon = True
-    input_thread.start()
+    thread = threading.Thread(target=user_input)
+    thread.daemon = True
+    thread.start()
 
     run_dns_server()
 
